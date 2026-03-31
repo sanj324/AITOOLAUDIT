@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model role_master {
+  id          Int           @id @default(autoincrement())
+  role_code   String        @unique @db.VarChar(50)
+  role_name   String        @unique @db.VarChar(100)
+  description String?       @db.VarChar(255)
+  is_active   Boolean       @default(true)
+  is_deleted  Boolean       @default(false)
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+  users       user_master[]
+}
+
+model user_master {
+  id             Int         @id @default(autoincrement())
+  full_name      String      @db.VarChar(150)
+  email          String      @unique @db.VarChar(150)
+  password_hash  String      @db.VarChar(255)
+  role_id        Int
+  department     String?     @db.VarChar(100)
+  designation    String?     @db.VarChar(100)
+  last_login_at  DateTime?
+  is_active      Boolean     @default(true)
+  is_deleted     Boolean     @default(false)
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+  role           role_master @relation(fields: [role_id], references: [id])
+  assigned_audits audit_master[] @relation("audit_assignee")
+  audit_logs     audit_trail_log[]
+
+  @@index([role_id])
+  @@index([email, is_deleted])
+}
+
+model tool_master {
+  id          Int                @id @default(autoincrement())
+  tool_name   String             @unique @db.VarChar(150)
+  description String?            @db.VarChar(500)
+  risk_level  String             @db.VarChar(30)
+  is_active   Boolean            @default(true)
+  is_deleted  Boolean            @default(false)
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+  checklists  checklist_master[]
+  audits      audit_master[]
+
+  @@index([tool_name, is_deleted])
+}
+
+model checklist_master {
+  id                Int         @id @default(autoincrement())
+  parameter_name    String      @db.VarChar(200)
+  description       String?     @db.VarChar(500)
+  tool_id           Int
+  severity          String      @db.VarChar(30)
+  weight            Decimal     @db.Decimal(5, 2)
+  evidence_required Boolean     @default(false)
+  is_active         Boolean     @default(true)
+  is_deleted        Boolean     @default(false)
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+  tool              tool_master @relation(fields: [tool_id], references: [id])
+  responses         audit_response[]
+  observations      audit_observation[]
+
+  @@index([tool_id])
+  @@index([parameter_name, is_deleted])
+  @@unique([parameter_name, tool_id])
+}
+
+model audit_master {
+  id            Int              @id @default(autoincrement())
+  audit_name    String           @db.VarChar(200)
+  audit_type    String           @db.VarChar(100)
+  team          String           @db.VarChar(150)
+  tool_id       Int
+  auditor_id    Int
+  start_date    DateTime
+  end_date      DateTime
+  status        String           @db.VarChar(30)
+  is_deleted    Boolean          @default(false)
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
+  tool          tool_master      @relation(fields: [tool_id], references: [id])
+  auditor       user_master      @relation("audit_assignee", fields: [auditor_id], references: [id])
+  responses     audit_response[]
+  observations  audit_observation[]
+
+  @@index([tool_id])
+  @@index([auditor_id])
+  @@index([status, is_deleted])
+}
+
+model audit_response {
+  id                  Int              @id @default(autoincrement())
+  audit_id            Int
+  checklist_id        Int
+  response_status     String           @db.VarChar(30)
+  comments            String?          @db.VarChar(1000)
+  evidence_file_name  String?          @db.VarChar(255)
+  evidence_file_path  String?          @db.VarChar(500)
+  evidence_file_size  Int?
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @updatedAt
+  audit               audit_master     @relation(fields: [audit_id], references: [id])
+  checklist           checklist_master @relation(fields: [checklist_id], references: [id])
+
+  @@index([audit_id])
+  @@index([checklist_id])
+  @@unique([audit_id, checklist_id])
+}
+
+model audit_observation {
+  id              Int              @id @default(autoincrement())
+  audit_id        Int
+  checklist_id    Int
+  title           String           @db.VarChar(200)
+  description     String?          @db.VarChar(1000)
+  severity        String           @db.VarChar(30)
+  recommendation  String?          @db.VarChar(1000)
+  status          String           @db.VarChar(30)
+  is_deleted      Boolean          @default(false)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime         @updatedAt
+  audit           audit_master     @relation(fields: [audit_id], references: [id])
+  checklist       checklist_master @relation(fields: [checklist_id], references: [id])
+
+  @@index([audit_id])
+  @@index([checklist_id])
+  @@index([status, is_deleted])
+  @@unique([audit_id, checklist_id])
+}
+
+model audit_trail_log {
+  id          Int         @id @default(autoincrement())
+  user_id     Int?
+  action      String      @db.VarChar(150)
+  entity      String      @db.VarChar(150)
+  entity_id    Int?
+  description String?     @db.VarChar(1000)
+  created_at  DateTime    @default(now())
+  user        user_master? @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([entity, created_at])
+  @@index([action, created_at])
+}
