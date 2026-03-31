@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { resolveFileUrl } from "../utils/file-url";
 
 const executionStatuses = [
   { value: "COMPLIANT", label: "Compliant" },
@@ -37,11 +38,6 @@ export default function AuditExecutionPage() {
   const [exporting, setExporting] = useState("");
   const [analyzingId, setAnalyzingId] = useState(null);
   const [drafts, setDrafts] = useState({});
-
-  const fileBaseUrl = useMemo(() => {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-    return apiBaseUrl.replace(/\/api\/?$/, "");
-  }, []);
 
   const loadAudit = async () => {
     try {
@@ -367,7 +363,7 @@ export default function AuditExecutionPage() {
                         <p className="text-xs text-slate-500">Current file: {draft.currentFileName}</p>
                         {item.response?.evidenceFilePath ? (
                           <a
-                            href={`${fileBaseUrl}${item.response.evidenceFilePath}`}
+                            href={resolveFileUrl(item.response.evidenceFilePath)}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs font-semibold text-brand-700 hover:underline"

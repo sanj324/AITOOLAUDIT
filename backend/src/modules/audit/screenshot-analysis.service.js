@@ -1,4 +1,3 @@
-import fs from "fs";
 import { env } from "../../config/env.js";
 
 function extractJson(text) {
@@ -49,14 +48,20 @@ function extractTextFromResponsePayload(data) {
   return textParts.join("\n").trim();
 }
 
-export async function analyzeScreenshotWithAi({ filePath, toolName, parameterName, parameterDescription, severity }) {
+export async function analyzeScreenshotWithAi({
+  imageBuffer,
+  mimeType,
+  toolName,
+  parameterName,
+  parameterDescription,
+  severity
+}) {
   if (!env.openAiApiKey) {
     const error = new Error("OPENAI_API_KEY is not configured for screenshot analysis");
     error.statusCode = 400;
     throw error;
   }
 
-  const imageBuffer = fs.readFileSync(filePath);
   const base64Image = imageBuffer.toString("base64");
 
   const prompt = `
@@ -101,7 +106,7 @@ Use conservative audit judgment. If the screenshot does not prove compliance, pr
             },
             {
               type: "input_image",
-              image_url: `data:image/png;base64,${base64Image}`
+              image_url: `data:${mimeType || "image/png"};base64,${base64Image}`
             }
           ]
         }

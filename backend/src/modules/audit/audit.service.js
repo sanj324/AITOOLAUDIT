@@ -1,10 +1,9 @@
-import path from "path";
-import fs from "fs";
 import { prisma } from "../../config/prisma.js";
 import { calculateScoreSummary } from "./scoring.service.js";
 import { analyzeScreenshotWithAi } from "./screenshot-analysis.service.js";
 import { createAuditTrailLog } from "../audit-trail/audit-trail.service.js";
 import { upsertObservationFromResponse } from "../observation/observation.service.js";
+import { loadEvidenceBuffer, persistEvidenceFile } from "../../services/evidence-storage.service.js";
 
 function mapAudit(audit) {
   return {
@@ -342,15 +341,19 @@ export async function saveAuditResponse(auditId, payload, file, user) {
     throw error;
   }
 
-  if (checklist.evidenceRequired && !file && !checklist.response?.evidenceFilePath) {
+  const storedEvidence = file
+    ? await persistEvidenceFile(file)
+    : {
+        fileName: checklist.response?.evidenceFileName || null,
+        filePath: checklist.response?.evidenceFilePath || null,
+        fileSize: checklist.response?.evidenceFileSize || null
+      };
+
+  if (checklist.evidenceRequired && !storedEvidence.filePath) {
     const error = new Error("Evidence file is required for this checklist item");
     error.statusCode = 400;
     throw error;
   }
-
-  const relativePath = file
-    ? `/uploads/audit-evidence/${path.basename(file.path)}`
-    : checklist.response?.evidenceFilePath || null;
 
   const response = await prisma.audit_response.upsert({
     where: {
@@ -362,18 +365,18 @@ export async function saveAuditResponse(auditId, payload, file, user) {
     update: {
       response_status: payload.responseStatus,
       comments: payload.comments || null,
-      evidence_file_name: file ? file.originalname : checklist.response?.evidenceFileName || null,
-      evidence_file_path: relativePath,
-      evidence_file_size: file ? file.size : checklist.response?.evidenceFileSize || null
+      evidence_file_name: storedEvidence.fileName,
+      evidence_file_path: storedEvidence.filePath,
+      evidence_file_size: storedEvidence.fileSize
     },
     create: {
       audit_id: auditId,
       checklist_id: Number(payload.checklistId),
       response_status: payload.responseStatus,
       comments: payload.comments || null,
-      evidence_file_name: file ? file.originalname : null,
-      evidence_file_path: relativePath,
-      evidence_file_size: file ? file.size : null
+      evidence_file_name: storedEvidence.fileName,
+      evidence_file_path: storedEvidence.filePath,
+      evidence_file_size: storedEvidence.fileSize
     }
   });
 
@@ -416,23 +419,22 @@ export async function analyzeAuditScreenshot(auditId, checklistId, file, user) {
     throw error;
   }
 
-  let analysisFilePath = file?.path || null;
+  const storedEvidence = file
+    ? {
+        buffer: file.buffer,
+        mimeType: file.mimetype
+      }
+    : await loadEvidenceBuffer(checklist.response?.evidenceFilePath);
 
-  if (!analysisFilePath && checklist.response?.evidenceFilePath) {
-    analysisFilePath = path.resolve(
-      "e:\\AITOOLAUDIT\\backend",
-      `.${checklist.response.evidenceFilePath}`
-    );
-  }
-
-  if (!analysisFilePath || !fs.existsSync(analysisFilePath)) {
+  if (!storedEvidence?.buffer) {
     const error = new Error("Upload a screenshot or use an existing saved evidence file for analysis");
     error.statusCode = 400;
     throw error;
   }
 
   const analysis = await analyzeScreenshotWithAi({
-    filePath: analysisFilePath,
+    imageBuffer: storedEvidence.buffer,
+    mimeType: storedEvidence.mimeType,
     toolName: audit.toolScope.toolName,
     parameterName: checklist.parameterName,
     parameterDescription: checklist.description,

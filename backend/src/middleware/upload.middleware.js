@@ -1,16 +1,5 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import multer from "multer";
 import { sendError } from "../utils/api-response.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadDirectory = path.resolve(__dirname, "../../uploads/audit-evidence");
-
-if (!fs.existsSync(uploadDirectory)) {
-  fs.mkdirSync(uploadDirectory, { recursive: true });
-}
 
 const allowedMimeTypes = new Set([
   "application/pdf",
@@ -23,20 +12,8 @@ const allowedMimeTypes = new Set([
   "text/plain"
 ]);
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDirectory),
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname).toLowerCase();
-    const safeBase = path
-      .basename(file.originalname, extension)
-      .replace(/[^a-zA-Z0-9-_]/g, "_")
-      .slice(0, 60);
-    cb(null, `${Date.now()}-${safeBase}${extension}`);
-  }
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024
   },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import api from "../api/axios";
+import { resolveFileUrl } from "../utils/file-url";
 
 const statusClasses = {
   OPEN: "bg-red-100 text-red-700",
@@ -12,11 +13,6 @@ export default function ObservationsPage() {
   const [observations, setObservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
-  const fileBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api").replace(
-    /\/api\/?$/,
-    ""
-  );
-
   const loadObservations = async () => {
     try {
       setLoading(true);
@@ -109,7 +105,7 @@ export default function ObservationsPage() {
                           {observation.evidence.fileName || "Attached evidence"}
                         </p>
                         <a
-                          href={`${fileBaseUrl}${observation.evidence.filePath}`}
+                          href={resolveFileUrl(observation.evidence.filePath)}
                           target="_blank"
                           rel="noreferrer"
                           className="mt-1 inline-block text-xs font-semibold text-brand-700 hover:underline"

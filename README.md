@@ -180,3 +180,57 @@ Frontend URL: `http://localhost:5173`
 - Evidence uploads are restricted by file type and size through `multer`
 - Non-compliant responses automatically raise observations for remediation tracking
 - Screenshot analysis can auto-generate audit response and observation draft content when `OPENAI_API_KEY` is configured
+
+## Vercel Deployment
+
+This repository is configured for a single Vercel project:
+
+- `frontend/` builds as the static React application
+- `api/[[...route]].js` exposes the Express backend as a Vercel serverless API
+- Prisma client generation runs during the Vercel build
+- Evidence uploads can use Vercel Blob in production
+
+### Recommended Architecture
+
+- Frontend: Vercel static hosting
+- Backend API: Vercel serverless function
+- Database: Neon, Supabase, Railway, or another managed PostgreSQL provider
+- File storage: Vercel Blob
+
+### Required Vercel Environment Variables
+
+Set these in the Vercel project dashboard:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN=8h`
+- `FRONTEND_URL=https://your-project.vercel.app`
+- `APP_URL=https://your-project.vercel.app`
+- `VITE_API_BASE_URL=/api`
+
+For persistent evidence uploads:
+
+- `STORAGE_MODE=blob`
+- `BLOB_READ_WRITE_TOKEN=...`
+
+For screenshot analysis:
+
+- `OPENAI_API_KEY=...`
+- `OPENAI_VISION_MODEL=gpt-4.1-mini`
+
+If you want preview deployments to work without manually changing `FRONTEND_URL` every time:
+
+- `ALLOW_VERCEL_PREVIEW_ORIGINS=true`
+
+### Deploy Steps
+
+1. Push the repository to GitHub.
+2. Import the repo into Vercel.
+3. Keep the project root as the repository root.
+4. Vercel will use `vercel.json` to install dependencies, generate Prisma client, build the frontend, and expose the backend API.
+5. Add the environment variables listed above.
+6. Deploy.
+
+### Important Production Note
+
+Do not use local filesystem upload storage on Vercel for long-term evidence retention. Use `STORAGE_MODE=blob` with `BLOB_READ_WRITE_TOKEN` so uploaded evidence persists across serverless invocations.
