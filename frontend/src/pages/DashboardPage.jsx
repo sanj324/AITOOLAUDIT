@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
   LabelList,
+  Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -60,12 +65,20 @@ export default function DashboardPage() {
   };
   const charts = dashboard?.charts || {
     toolWiseCompliance: [],
-    severityDistribution: []
+    severityDistribution: [],
+    monthlyTrend: [],
+    teamWiseCompliance: []
   };
   const summaries = dashboard?.summaries || {
     auditsByStatus: [],
     recentAudits: [],
-    recentObservations: []
+    recentObservations: [],
+    slaTracker: {
+      onTimeCompleted: 0,
+      breachedCompleted: 0,
+      overdueOpen: 0,
+      dueSoon: 0
+    }
   };
   const hasPositiveToolScore = charts.toolWiseCompliance.some(
     (item) => Number(item.compliancePercent) > 0
@@ -220,6 +233,162 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="executive-card rounded-3xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Monthly Trend
+              </p>
+              <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                Audit activity and compliance trend
+              </h3>
+            </div>
+          </div>
+          <div className="mt-6 h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={charts.monthlyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" tick={{ fill: "#475569", fontSize: 12 }} />
+                <YAxis yAxisId="count" tick={{ fill: "#475569", fontSize: 12 }} />
+                <YAxis
+                  yAxisId="percent"
+                  orientation="right"
+                  domain={[0, 100]}
+                  tick={{ fill: "#475569", fontSize: 12 }}
+                />
+                <Tooltip />
+                <Legend />
+                <Line
+                  yAxisId="count"
+                  type="monotone"
+                  dataKey="createdAudits"
+                  stroke="#244d80"
+                  strokeWidth={3}
+                  name="Created"
+                />
+                <Line
+                  yAxisId="count"
+                  type="monotone"
+                  dataKey="completedAudits"
+                  stroke="#0f766e"
+                  strokeWidth={3}
+                  name="Completed"
+                />
+                <Line
+                  yAxisId="percent"
+                  type="monotone"
+                  dataKey="compliancePercent"
+                  stroke="#dc2626"
+                  strokeWidth={3}
+                  strokeDasharray="6 4"
+                  name="Compliance %"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="executive-card rounded-3xl p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+            SLA Tracker
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-900">
+            Audit completion discipline
+          </h3>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                On Time Completed
+              </p>
+              <p className="mt-3 text-3xl font-semibold text-emerald-900">
+                {summaries.slaTracker.onTimeCompleted}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-red-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-700">
+                Breached Completed
+              </p>
+              <p className="mt-3 text-3xl font-semibold text-red-900">
+                {summaries.slaTracker.breachedCompleted}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-orange-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-700">
+                Overdue Open
+              </p>
+              <p className="mt-3 text-3xl font-semibold text-orange-900">
+                {summaries.slaTracker.overdueOpen}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-sky-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700">
+                Due In 7 Days
+              </p>
+              <p className="mt-3 text-3xl font-semibold text-sky-900">
+                {summaries.slaTracker.dueSoon}
+              </p>
+            </div>
+          </div>
+          <p className="mt-5 text-xs leading-5 text-slate-500">
+            Completed audit SLA is inferred using the current completion state and the latest audit update timestamp as the completion marker.
+          </p>
+        </div>
+      </div>
+
+      <div className="executive-card rounded-3xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Team-Wise Compliance
+            </p>
+            <h3 className="mt-2 text-xl font-semibold text-slate-900">
+              Average compliance by business team
+            </h3>
+          </div>
+        </div>
+        <div className="mt-6 h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={charts.teamWiseCompliance}>
+              <defs>
+                <linearGradient id="teamComplianceFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#244d80" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#244d80" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="team" tick={{ fill: "#475569", fontSize: 12 }} />
+              <YAxis domain={[0, 100]} tick={{ fill: "#475569", fontSize: 12 }} />
+              <Tooltip
+                formatter={(value, name, payload) =>
+                  name === "compliancePercent"
+                    ? [`${value}%`, "Compliance"]
+                    : [value, "Audits"]
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="compliancePercent"
+                stroke="#244d80"
+                fill="url(#teamComplianceFill)"
+                strokeWidth={3}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {charts.teamWiseCompliance.map((item) => (
+            <div key={item.team} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-semibold text-slate-800">{item.team}</span>
+                <span className="text-slate-900">{item.compliancePercent}%</span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">{item.totalAudits} audits</p>
+            </div>
+          ))}
         </div>
       </div>
 
