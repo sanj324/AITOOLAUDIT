@@ -23,7 +23,11 @@ export async function getDashboardMetrics() {
       where: { is_deleted: false },
       include: {
         tool: true,
+        auditor: true,
         responses: true
+      },
+      orderBy: {
+        created_at: "desc"
       }
     }),
     prisma.tool_master.findMany({
@@ -37,6 +41,17 @@ export async function getDashboardMetrics() {
     prisma.audit_observation.findMany({
       where: {
         is_deleted: false
+      },
+      include: {
+        audit: {
+          include: {
+            tool: true
+          }
+        },
+        checklist: true
+      },
+      orderBy: {
+        created_at: "desc"
       }
     })
   ]);
@@ -108,6 +123,46 @@ export async function getDashboardMetrics() {
     })
   );
 
+  const openObservations = observations.filter(
+    (item) => item.status !== "CLOSED"
+  ).length;
+
+  const auditsByStatus = ["PLANNED", "IN_PROGRESS", "REVIEW_PENDING", "COMPLETED"].map(
+    (status) => ({
+      status,
+      count: audits.filter((audit) => audit.status === status).length
+    })
+  );
+
+  const recentAudits = audits.slice(0, 5).map((audit) => {
+    const scoreSummary =
+      auditScores.find((item) => item.auditId === audit.id)?.scoreSummary ||
+      calculateScoreSummary([]);
+
+    return {
+      id: audit.id,
+      auditName: audit.audit_name,
+      team: audit.team,
+      status: audit.status,
+      toolName: audit.tool?.tool_name || "Unknown",
+      auditorName: audit.auditor?.full_name || "Unassigned",
+      compliancePercent: scoreSummary.auditScorePercent,
+      observationCount: observations.filter((item) => item.audit_id === audit.id).length,
+      updatedAt: audit.updated_at
+    };
+  });
+
+  const recentObservations = observations.slice(0, 5).map((observation) => ({
+    id: observation.id,
+    title: observation.title,
+    severity: observation.severity,
+    status: observation.status,
+    auditName: observation.audit?.audit_name || "Audit",
+    toolName: observation.audit?.tool?.tool_name || "Unknown",
+    checklistName: observation.checklist?.parameter_name || "Checklist item",
+    updatedAt: observation.updated_at
+  }));
+
   return {
     kpis: {
       totalAudits: audits.length,
@@ -115,11 +170,17 @@ export async function getDashboardMetrics() {
       highRiskFindings: observations.filter((item) =>
         ["HIGH", "CRITICAL"].includes(item.severity)
       ).length,
+      openObservations,
       compliancePercent
     },
     charts: {
       toolWiseCompliance,
       severityDistribution
+    },
+    summaries: {
+      auditsByStatus,
+      recentAudits,
+      recentObservations
     }
   };
 }
